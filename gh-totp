@@ -1,0 +1,38 @@
+# totp 2fa for github
+
+########################################################################
+
+(import janet-totp/base32 :as b)
+(import janet-totp/totp :as t)
+
+########################################################################
+
+(defn main
+  [& args]
+  (def first-arg
+    (if (> (length args) 1)
+      (scan-number (get args 1))
+      0))
+  (assert (and (not (neg? first-arg)) (int? first-arg))
+          "Please specify a positive integer for window")
+  (def window (inc first-arg))
+  # XXX: support reading from file?
+  (def input (string/trimr (file/read stdin :line)))
+  #
+  (def expected-key-len 16)
+  (assert (= expected-key-len (length input))
+          (string/format "Expected key length: %d, got: %d"
+                         expected-key-len (length input)))
+  # XXX: could tolerate lowercase?
+  (assert (not (nil? (peg/match '(some (choice (range "AZ")
+                                               (range "27")))
+                                input)))
+          "Key does not appear to be expressed in base 32")
+  #
+  (def key (b/decode input))
+  (def now (os/time))
+  #
+  (for step 0 window
+    (def tf
+      (t/calc-time-factor {:now (+ now (* 30 step))}))
+    (print (t/totp key tf))))
